@@ -77,6 +77,11 @@
     .hide-settings {
       display: none;
     }
+    
+    #settings-section{
+      padding: 1em;
+      display: flex;
+    }
 
     .setting {
       display: flex;
@@ -141,12 +146,14 @@
     <h1>Timer will ring for every Interval specified for a total number of workouts</h1>
   </header>
   <main>
+    <section id>
       <div id="timer"></div>
       <section class="timer-controls">
         <button id="start-timer">Start</button>
         <button id="pause-timer">Pause</button>
         <button id="stop-timer">Stop</button>
       </section>
+     </section>
     <section id="settings-section">
       <div class="setting">
         <button id="decrease-workout-time">-30s</button>
