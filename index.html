@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chronos</title>
+  <style>
+    body {
+      --dark: #393e46;
+      --medium-dark: #5c636e;
+      --light-dark: #C1C1C1;
+      --light: #f7f7f7;
+      --primary: #f8b500;
+      --green: #52AA5E;
+      --blue: #87BCDE;
+
+      font: 40px sans-serif;
+      box-sizing: border-box;
+      height: 100vh;
+      margin: 0;
+      background: var(--dark);
+      color: var(--light);
+      display: flex;
+      flex-direction: column;
+    }
+
+    @media screen and (max-resolution: 1080dpi) {
+      body {
+        font-size: 30px;
+      }
+    }
+
+    header {
+      padding: 1em 0;
+      text-align: center;
+      color: var(--medium-dark);
+    }
+
+    main {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    #timer {
+      font-size: 3em;
+      text-align: center;
+      padding: 1em 0 0.5em 0;
+    }
+
+    #timer.workout {
+      color: var(--green);
+    }
+
+    #timer.rest {
+      color: var(--blue);
+    }
+
+    .timer-controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .timer-controls button {
+      margin: 0 0.5em;
+      border-color: var(--primary);
+      color: var(--light);
+    }
+
+    #start-timer {
+      background-color: var(--primary);
+      border-color: transparent;
+      color: var(--light);
+    }
+
+    .hide-settings {
+      display: none;
+    }
+
+    .setting {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .setting button {
+      width: 4em;
+    }
+
+    .setting-value {
+      width: 4em;
+      margin: 0.75em 1em 0 1em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: var(--light-dark);
+    }
+
+    .setting-value label {
+      color: var(--medium-dark);
+      font-size: 0.5em;
+      margin-top: 0.25em;
+    }
+
+    footer {
+      width: 100%;
+      margin-top: 1em;
+      padding: 0.5em 0;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1em;
+    }
+
+    button {
+      font-size: 1em;
+      color: var(--light-dark);
+      background-color: transparent;
+      border: 1px solid var(--light-dark);
+      border-radius: 10px;
+      padding: 0.25em 1em;
+      cursor: pointer;
+    }
+
+    button:focus {
+      outline: none;
+    }
+
+    a {
+      color: var(--medium-dark);
+      text-decoration: none;
+      font-size: 0.75em;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Timer will ring for every Interval specified for a total number of workouts</h1>
+  </header>
+  <main>
+    <section>
+      <div id="timer"></div>
+      <section class="timer-controls">
+        <button id="start-timer">Start</button>
+        <button id="pause-timer">Pause</button>
+        <button id="stop-timer">Stop</button>
+      </section>
+    </section>
+    <section id="settings-section">
+      <div class="setting">
+        <button id="decrease-workout-time">-30s</button>
+        <div class="setting-value">
+          <span id="workout-time"></span>
+          <label>Interval</label>
+        </div>
+        <button id="increase-workout-time">+30s</button>
+      </div>
+      <div class="setting">
+        <button id="decrease-workouts-number">-</button>
+        <div class="setting-value">
+          <span id="workouts-number"></span>
+          <label>Workouts</label>
+        </div>
+        <button id="increase-workouts-number">+</button>
+    </div>
+      <div class="setting">
+        <button id="decrease-rest-time">-10s</button>
+        <div class="setting-value">
+          <span id="rest-time"></span>
+          <label>Rest Time</label>
+        </div>
+        <button id="increase-rest-time">+10s</button>
+      </div>
+      <div class="setting">
+        <button id="decrease-repetitions-number">-</button>
+        <div class="setting-value">
+          <span id="repetitions-number"></span>
+          <label>Repetitions</label>
+        </div>
+        <button id="increase-repetitions-number">+</button>
+      </div>
+    </section>
+  </main>
+ 
+  <script>
+    (function chronos() {
+      // time unit is seconds by default
+      const defaultWorkoutTime = 0;
+      const defaultRestTime = 0;
+      const defaultWorkoutsNumber = 1;
+      const defaultRepetitionsNumber = 1;
+      const defaultWorkoutTimePerRepetition = defaultWorkoutsNumber * defaultWorkoutTime;
+      const defaultRestTimePerRepetition = (defaultWorkoutsNumber - 1) * defaultRestTime;
+      const defaultRestTimeBetweenRepetitions = (defaultRepetitionsNumber - 1) * defaultRestTime;
+      const defaultTotalTime = defaultRepetitionsNumber * (defaultWorkoutTimePerRepetition + defaultRestTimePerRepetition) + defaultRestTimeBetweenRepetitions;
+      const incrementTime = 30;
+      const restinctime=10;
+      let workoutTime = defaultWorkoutTime;
+      let restTime = defaultRestTime;
+      let totalTime = defaultTotalTime;
+      let workoutsNumber = defaultWorkoutsNumber;
+      let repetitionsNumber = defaultRepetitionsNumber;
+      let remainingTimes = null;
+      let timer = null;
+
+      function startTimer() {
+        if (!timer) {
+          if (!remainingTimes) {
+            setRemainingTimes();
+          }
+          const end = Date.now() + totalTime * 1000;
+          timer = setInterval(countdown, 1000, end);
+          renderTimeAt(totalTime, '#timer');
+          renderWorkoutMode();
+          playWorkoutStartSound();
+          showSettings(false);
+        }
+      }
+
+      function setRemainingTimes() {
+        remainingTimes = {};
+        remainingTimes.workoutTime = workoutTime - 1;
+        remainingTimes.restTime = restTime - 1;
+      }
+
+      function countdown(endTimePoint) {
+        const now = Date.now();
+        totalTime = Math.round((endTimePoint - now) / 1000);
+
+        if (totalTime <= 0) {
+          clearInterval(timer);
+          timer = null;
+          totalTime = 0;
+          resetRenderMode();
+          playWorkoutFinishedSound();
+          showSettings(true);
+        } else {
+          countDownWorkoutRestTimers();
+        }
+
+        renderTimeAt(totalTime, '#timer');
+      }
+
+      function countDownWorkoutRestTimers() {
+        if (document.querySelector('#timer').classList.contains('workout')) {
+          if (remainingTimes.workoutTime - 1 < 0) {
+            toggleWorkoutRestMode();
+            playWorkoutSound();
+            remainingTimes.workoutTime = workoutTime - 1;
+          } else {
+            remainingTimes.workoutTime -= 1;
+          }
+        } else if (document.querySelector('#timer').classList.contains('rest')) {
+          if (remainingTimes.restTime - 1 < 0) {
+            toggleWorkoutRestMode();
+            playRestSound();
+            remainingTimes.restTime = restTime - 1;
+          } else {
+            remainingTimes.restTime -= 1;
+          }
+        }
+      }
+
+      function pauseTimer() {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      }
+
+      function stopTimer() {
+        pauseTimer();
+        resetRenderMode();
+        remainingTimes = null;
+        calculateTotalTime();
+        renderTimeAt(totalTime, '#timer');
+        showSettings(true);
+      }
+
+      function increaseWorkoutTime() {
+        adjustWorkoutTime(incrementTime);
+      }
+
+      function decreaseWorkoutTime() {
+        adjustWorkoutTime(-incrementTime);
+      }
+
+      function adjustWorkoutTime(adjustmentInSeconds) {
+        let newTime = workoutTime + adjustmentInSeconds;
+        if (newTime < 0) {
+          newTime = 0
+        }
+
+        workoutTime = newTime;
+        calculateTotalTime();
+        renderTimeAt(workoutTime, '#workout-time');
+        renderTimeAt(totalTime, '#timer');
+      }
+
+      function increaseRestTime() {
+        adjustRestTime(restinctime);
+      }
+
+      function decreaseRestTime() {
+        adjustRestTime(-restinctime);
+      }
+
+      function adjustRestTime(adjustmentInSeconds) {
+        let newTime = restTime + adjustmentInSeconds;
+        if (newTime < 0) {
+          newTime = 0
+        }
+
+        restTime = newTime;
+        calculateTotalTime();
+        renderTimeAt(restTime, '#rest-time');
+        renderTimeAt(totalTime, '#timer');
+      }
+
+      function calculateTotalTime() {
+        const workoutTimePerRepetition = workoutsNumber * workoutTime;
+        const restTimePerRepetition = (workoutsNumber - 1) * restTime;
+        const restTimeBetweenRepetitions = (repetitionsNumber - 1) * restTime;
+        totalTime = repetitionsNumber * (workoutTimePerRepetition + restTimePerRepetition) + restTimeBetweenRepetitions;
+      }
+
+      function increaseWorkoutsNumber() {
+        workoutsNumber += 1;
+        calculateTotalTime();
+        renderWorkoutsNumber(workoutsNumber);
+        renderTimeAt(totalTime, '#timer');
+      }
+
+      function decreaseWorkoutsNumber() {
+        let newWorkoutsNumber = workoutsNumber - 1;
+        if (newWorkoutsNumber < 1) {
+          newWorkoutsNumber = 1
+        }
+        workoutsNumber = newWorkoutsNumber;
+        calculateTotalTime();
+        renderWorkoutsNumber(workoutsNumber);
+        renderTimeAt(totalTime, '#timer');
+      }
+
+      function increaseRepetitionsNumber() {
+        repetitionsNumber += 1;
+        calculateTotalTime();
+        renderRepetitionsNumber(repetitionsNumber);
+        renderTimeAt(totalTime, '#timer');
+      }
+
+      function decreaseRepetitionsNumber() {
+        let newRepetitionsNumber = repetitionsNumber - 1;
+        if (newRepetitionsNumber < 1) {
+          newRepetitionsNumber = 1
+        }
+        repetitionsNumber = newRepetitionsNumber;
+        calculateTotalTime();
+        renderRepetitionsNumber(repetitionsNumber);
+        renderTimeAt(totalTime, '#timer');
+      }
+
+      function renderTimeAt(timeInSeconds, selector) {
+        const {minutes, seconds} = getMinutesAndSecondsFromTotalSeconds(timeInSeconds);
+        document.querySelector(selector).innerHTML = stringifyMinutesAndSeconds(minutes, seconds);
+      }
+
+      function renderWorkoutMode() {
+        document.querySelector('#timer').classList.add('workout');
+      }
+
+      function toggleWorkoutRestMode() {
+        document.querySelector('#timer').classList.toggle('workout');
+        document.querySelector('#timer').classList.toggle('rest');
+      }
+
+      function resetRenderMode() {
+        document.querySelector('#timer').classList.remove('workout');
+        document.querySelector('#timer').classList.remove('rest');
+      }
+
+      function renderWorkoutsNumber(value) {
+        document.querySelector('#workouts-number').innerHTML = value.toString();
+      }
+
+      function renderRepetitionsNumber(value) {
+        document.querySelector('#repetitions-number').innerHTML = value.toString();
+      }
+
+      function playWorkoutSound() {
+        const audio = new Audio('sounds/workout.wav');
+        audio.play();
+      }
+
+      function playWorkoutStartSound(){
+        const audio = new Audio('sounds/workout_start.wav');
+        audio.play();
+      }
+
+      function playRestSound() {
+        const audio = new Audio('sounds/rest.wav');
+        audio.play();
+      }
+
+      function playWorkoutFinishedSound() {
+        const audio = new Audio('sounds/workout_finished.wav');
+        audio.play();
+      }
+
+      function getMinutesAndSecondsFromTotalSeconds(totalSeconds) {
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = Math.ceil(totalSeconds % 60) % 60;
+
+        return {minutes, seconds}
+      }
+
+      function stringifyMinutesAndSeconds(minutes, seconds) {
+        const minutesString = minutes < 10 ? '0' + minutes.toString() : minutes.toString();
+        const secondsString = seconds < 10 ? '0' + seconds.toString() : seconds.toString();
+
+        return minutesString + ':' + secondsString;
+      }
+
+      function showSettings(value) {
+        const settings = document.querySelector('#settings-section');
+        settings.classList.toggle('hide-settings', !value)
+      }
+
+      function registerEvents() {
+        document.querySelector('#start-timer').addEventListener('click', startTimer);
+        document.querySelector('#pause-timer').addEventListener('click', pauseTimer);
+        document.querySelector('#stop-timer').addEventListener('click', stopTimer);
+        document.querySelector('#increase-workout-time').addEventListener('click', increaseWorkoutTime);
+        document.querySelector('#decrease-workout-time').addEventListener('click', decreaseWorkoutTime);
+        document.querySelector('#increase-rest-time').addEventListener('click', increaseRestTime);
+        document.querySelector('#decrease-rest-time').addEventListener('click', decreaseRestTime);
+        document.querySelector('#increase-workouts-number').addEventListener('click', increaseWorkoutsNumber);
+        document.querySelector('#decrease-workouts-number').addEventListener('click', decreaseWorkoutsNumber);
+        document.querySelector('#increase-repetitions-number').addEventListener('click', increaseRepetitionsNumber);
+        document.querySelector('#decrease-repetitions-number').addEventListener('click', decreaseRepetitionsNumber);
+      }
+
+      window.addEventListener('load', () => {
+        registerEvents();
+        renderTimeAt(defaultTotalTime, '#timer');
+        renderTimeAt(defaultWorkoutTime, '#workout-time');
+        renderTimeAt(defaultRestTime, '#rest-time');
+        renderWorkoutsNumber(defaultWorkoutsNumber);
+        renderRepetitionsNumber(defaultRepetitionsNumber);
+      });
+    })();
+  </script>
+</body>
+</html>
